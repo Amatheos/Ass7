@@ -1,0 +1,43 @@
+package Main;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+public class FileFinder {
+
+    private static Predicate<File> inDirectory = File::isDirectory;
+
+    public static List<File> nameFind(Path path, String name) throws IOException {
+        return predicateFind(path, n -> Pattern.compile(name+"\\.*.*").matcher(n.getName()).matches());
+    }
+
+    public static List<File> contentFind(Path path, String content) throws IOException {
+        Pattern pattern = Pattern.compile(".*"+content+".*");
+        Predicate<File> findContent = f -> {
+            try {
+                return Files.lines(f.toPath())
+                                    .parallel()
+                                    .anyMatch(s -> pattern.matcher(s).matches());
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        };
+
+        return predicateFind(path, inDirectory.and(findContent));
+    }
+
+    public static List<File> predicateFind(Path path, Predicate<File> predicate) throws IOException {
+        return Files.walk(path)
+                    .parallel()
+                    .map(f -> new File(f.toUri()))
+                    .filter(predicate)
+                    .collect(Collectors.toList());
+    }
+}
