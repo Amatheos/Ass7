@@ -1,0 +1,52 @@
+package Main;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.List;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+
+public class Zips {
+
+    public static Predicate<ZipEntry> inDirectory = ZipEntry::isDirectory;
+
+    public static List<ZipEntry> nameFind(ZipFile file, String name) {
+        String dir = "(.*/"+name+"/$)";
+        String fil = "(.*/"+name+"\\.+.*$)";
+
+        Predicate<ZipEntry> nameMatch = n -> Pattern.compile(dir+"|"+fil).matcher(n.getName()).matches();
+        return predicateFind(file, nameMatch);
+    }
+
+    public static List<ZipEntry> contentFind(ZipFile file, String content) {
+        Pattern pattern = Pattern.compile(".*"+content+".*");
+        Predicate<ZipEntry> contentMatch = n -> {
+            try {
+                InputStream stream = file.getInputStream(n);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+                String str;
+                while((str=reader.readLine())!=null) {
+                    if(pattern.matcher(str).matches())
+                        return true;
+                }
+                return false;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return false;
+            }
+        };
+        return predicateFind(file, inDirectory.and(contentMatch));
+    }
+
+    public static List<ZipEntry> predicateFind(ZipFile file, Predicate<ZipEntry> predicate) {
+        return file.stream()
+                    .parallel()
+                    .filter(predicate)
+                    .collect(Collectors.toList());
+    }
+}
